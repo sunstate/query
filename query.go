@@ -29,6 +29,12 @@ func NewTx(db *sql.DB) (Item, error) {
 	return Item{tx: tx, method: TX}, err
 }
 
+// Initiate a database transaction with external context
+func NewTxWithContext(db *sql.DB, ctx context.Context) (Item, error) {
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
+	return Item{tx: tx, method: TX}, err
+}
+
 // Initiate a database query
 func NewQ(db *sql.DB) Item {
 	return Item{db: db, method: Q}

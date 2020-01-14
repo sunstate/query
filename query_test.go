@@ -179,7 +179,6 @@ func TestNewTx(t *testing.T) {
 
 	err = db.Close()
 
-
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
