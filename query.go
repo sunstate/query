@@ -141,7 +141,7 @@ func (i *Item) Insert() error {
 	return errors.New("unknown method")
 }
 
-func (i *Item) InsertReturningId(id interface{}) error {
+func (i *Item) InsertReturning(args ...interface{}) error {
 	if i.q == "" {
 		return errors.New("you need to define a query")
 	}
@@ -151,12 +151,12 @@ func (i *Item) InsertReturningId(id interface{}) error {
 			return errors.New("transaction is already committed, you have to start a new transaction")
 		}
 
-		err := i.tx.QueryRow(i.q, i.args...).Scan(id)
+		err := i.tx.QueryRow(i.q, i.args...).Scan(args...)
 		return err
 	}
 
 	if i.method == Q {
-		err := i.db.QueryRow(i.q, i.args...).Scan(id)
+		err := i.db.QueryRow(i.q, i.args...).Scan(args...)
 		return err
 	}
 
