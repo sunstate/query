@@ -50,7 +50,7 @@ func (i *Item) Arguments(args ...interface{}) *Item {
 	return i
 }
 
-func (i *Item) Run() error {
+func (i *Item) run(ctx context.Context) error {
 	var err error
 
 	if i.method == TX {
@@ -58,17 +58,25 @@ func (i *Item) Run() error {
 			return errors.New("transaction is already committed, you have to start a new transaction")
 		}
 
-		_, err = i.tx.Exec(i.q, i.args...)
+		_, err = i.tx.ExecContext(ctx, i.q, i.args...)
 	}
 
 	if i.method == Q {
-		_, err = i.db.Exec(i.q, i.args...)
+		_, err = i.db.ExecContext(ctx, i.q, i.args...)
 	}
 
 	return err
 }
 
-func (i *Item) RunWithFunc(op func(*sql.Rows)) error {
+func (i *Item) Run() error {
+	return i.run(context.Background())
+}
+
+func (i *Item) RunContext(ctx context.Context) error {
+	return i.run(ctx)
+}
+
+func (i *Item) runWithFunc(ctx context.Context, op func(*sql.Rows)) error {
 	var (
 		rows *sql.Rows
 		err  error
@@ -83,11 +91,11 @@ func (i *Item) RunWithFunc(op func(*sql.Rows)) error {
 			return errors.New("transaction is already committed, you have to start a new transaction")
 		}
 
-		rows, err = i.tx.Query(i.q, i.args...)
+		rows, err = i.tx.QueryContext(ctx, i.q, i.args...)
 	}
 
 	if i.method == Q {
-		rows, err = i.db.Query(i.q, i.args...)
+		rows, err = i.db.QueryContext(ctx, i.q, i.args...)
 	}
 
 	if err != nil {
@@ -99,7 +107,16 @@ func (i *Item) RunWithFunc(op func(*sql.Rows)) error {
 	return rows.Close()
 }
 
-func (i *Item) RunRow(dest ...interface{}) error {
+
+func (i *Item) RunWithFunc(op func(*sql.Rows)) error {
+	return i.runWithFunc(context.Background(), op)
+}
+
+func (i *Item) RunWithFuncContext(ctx context.Context, op func(*sql.Rows)) error {
+	return i.runWithFunc(ctx, op)
+}
+
+func (i *Item) runRow(ctx context.Context, dest ...interface{}) error {
 	if i.q == "" {
 		return errors.New("you need to define a query")
 	}
@@ -109,17 +126,55 @@ func (i *Item) RunRow(dest ...interface{}) error {
 			return errors.New("transaction is already committed, you have to start a new transaction")
 		}
 
-		return i.tx.QueryRow(i.q, i.args...).Scan(dest...)
+		return i.tx.QueryRowContext(ctx, i.q, i.args...).Scan(dest...)
 	}
 
 	if i.method == Q {
-		return i.db.QueryRow(i.q, i.args...).Scan(dest...)
+		return i.db.QueryRowContext(ctx, i.q, i.args...).Scan(dest...)
+	}
+
+	return errors.New("unknown method")
+}
+
+func (i *Item) RunRow(dest ...interface{}) error {
+	return i.runRow(context.Background(), dest...)
+}
+
+func (i *Item) RunRowContext(ctx context.Context, dest ...interface{}) error {
+	return i.runRow(ctx, dest...)
+}
+
+func (i *Item) insert(ctx context.Context) error {
+	if i.q == "" {
+		return errors.New("you need to define a query")
+	}
+
+	if i.method == TX {
+		if i.used {
+			return errors.New("transaction is already committed, you have to start a new transaction")
+		}
+
+		_, err := i.tx.ExecContext(ctx, i.q, i.args...)
+		return err
+	}
+
+	if i.method == Q {
+		_, err := i.db.ExecContext(ctx, i.q, i.args...)
+		return err
 	}
 
 	return errors.New("unknown method")
 }
 
 func (i *Item) Insert() error {
+	return i.insert(context.Background())
+}
+
+func (i *Item) InsertContext(ctx context.Context) error {
+	return i.insert(ctx)
+}
+
+func (i *Item) insertReturning(ctx context.Context, args ...interface{}) error {
 	if i.q == "" {
 		return errors.New("you need to define a query")
 	}
@@ -129,12 +184,12 @@ func (i *Item) Insert() error {
 			return errors.New("transaction is already committed, you have to start a new transaction")
 		}
 
-		_, err := i.tx.Exec(i.q, i.args...)
+		err := i.tx.QueryRowContext(ctx, i.q, i.args...).Scan(args...)
 		return err
 	}
 
 	if i.method == Q {
-		_, err := i.db.Exec(i.q, i.args...)
+		err := i.db.QueryRowContext(ctx, i.q, i.args...).Scan(args...)
 		return err
 	}
 
@@ -142,25 +197,11 @@ func (i *Item) Insert() error {
 }
 
 func (i *Item) InsertReturning(args ...interface{}) error {
-	if i.q == "" {
-		return errors.New("you need to define a query")
-	}
+	return i.insertReturning(context.Background(), args...)
+}
 
-	if i.method == TX {
-		if i.used {
-			return errors.New("transaction is already committed, you have to start a new transaction")
-		}
-
-		err := i.tx.QueryRow(i.q, i.args...).Scan(args...)
-		return err
-	}
-
-	if i.method == Q {
-		err := i.db.QueryRow(i.q, i.args...).Scan(args...)
-		return err
-	}
-
-	return errors.New("unknown method")
+func (i *Item) InsertReturningContext(ctx context.Context, args ...interface{}) error {
+	return i.insertReturning(ctx, args...)
 }
 
 func Commit(i *Item) error {
