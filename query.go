@@ -50,7 +50,13 @@ func (i *Item) Arguments(args ...interface{}) *Item {
 	return i
 }
 
+func (i *Item) reset() {
+	i.args = nil
+	i.q = ""
+}
+
 func (i *Item) run(ctx context.Context) error {
+	defer i.reset()
 	var err error
 
 	if i.method == TX {
@@ -77,6 +83,7 @@ func (i *Item) RunContext(ctx context.Context) error {
 }
 
 func (i *Item) runWithFunc(ctx context.Context, op func(*sql.Rows)) error {
+	defer i.reset()
 	var (
 		rows *sql.Rows
 		err  error
@@ -117,6 +124,7 @@ func (i *Item) RunWithFuncContext(ctx context.Context, op func(*sql.Rows)) error
 }
 
 func (i *Item) runRow(ctx context.Context, dest ...interface{}) error {
+	defer i.reset()
 	if i.q == "" {
 		return errors.New("you need to define a query")
 	}
@@ -145,6 +153,7 @@ func (i *Item) RunRowContext(ctx context.Context, dest ...interface{}) error {
 }
 
 func (i *Item) insert(ctx context.Context) error {
+	defer i.reset()
 	if i.q == "" {
 		return errors.New("you need to define a query")
 	}
@@ -175,6 +184,7 @@ func (i *Item) InsertContext(ctx context.Context) error {
 }
 
 func (i *Item) insertReturning(ctx context.Context, args ...interface{}) error {
+	defer i.reset()
 	if i.q == "" {
 		return errors.New("you need to define a query")
 	}
